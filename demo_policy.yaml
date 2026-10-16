@@ -1,0 +1,6 @@
+mandatory:
+  iss: https://sharedeus2.eus2.attest.azure.net
+  x-ms-attestation-type: azurevm
+  x-ms-azurevm-attestation-protocol-ver: "2.0"
+optional:
+  fake-entry: not_real
