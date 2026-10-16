@@ -14,12 +14,12 @@ import sys
 def read_token_from_file(filename):
     ### Reads the token from the file
     token_coded = ""
-    
+
     with open(filename,"r") as f:
         token_coded = f.read()
 
     return token_coded
-    
+
 
 def verify_signature(token):
     ### Verify the JWT's signature using the issuing authority
@@ -37,7 +37,7 @@ def verify_signature(token):
     # Now we can verify the token
     # Decoding with the key throws an exception if verification fails
     try:
-        jwt.decode(token, key.key, algorithms=["RS256"])
+        jwt.decode(token, key.key, algorithms=["RS256", "PS384"])
     except jwt.exceptions.InvalidTokenError as e:
         # Catch the exception when the token cannot be verified
         print(f"Warning, the token could not be verified for the following reason: {e}")
@@ -69,6 +69,6 @@ def main():
     # Compare token to policy here.
 
     # Then add to the node information?
-    
+
 if __name__ == "__main__":
     main()
