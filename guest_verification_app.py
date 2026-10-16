@@ -27,10 +27,13 @@ def read_token_from_file(filename) -> str:
 def verify_signature(token) -> int:
     ### Verify the JWT's signature using the issuing authority
 
-    # Get the address of the signing authority. Don't verify yet
-    try:
+    # Get the address of the signing authority and encryption algorithm used.
+    # Don't verify yet.
+    try:        
         iss = jwt.decode(token, options={"verify_signature": False})["iss"]
-    except DecodeError:
+        algo = jwt.get_unverified_header(token)["alg"]
+        
+    except jwt.exceptions.DecodeError:
         print("Dio not receive a valid token")
         return 1
 
@@ -40,8 +43,7 @@ def verify_signature(token) -> int:
     # Now we can verify the token
     # Decoding with the key throws an exception if verification fails
     try:
-        # The algorithm here might need to be changeable
-        jwt.decode(token, key.key, algorithms=["RS256"])
+        jwt.decode(token, key.key, algorithms=[algo])
     except jwt.exceptions.InvalidTokenError as e:
         # Catch the exception when the token cannot be verified
         print(f"Warning, the token could not be verified for the following reason: {e}")
