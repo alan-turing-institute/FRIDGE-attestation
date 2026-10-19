@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Daemonset
+metadata:
+  name: install-guest-attest
+  namespace: kube-system
+spec:
+  nodeSelector:
+    cvm: true # template node label
+  template:
+    metadata:
+      labels:
+        name: install-guest-attest
+    spec:
+      containers:
+        - name: pause
+          image: registry.k8s.io/pause
+      initContainers:
+        - name: install-guest-attest
+          image: busybox:1.38
+          command: [
+            'sh',
+            '-c',
+            'wget https://github.com/Azure/azure-guest-attestation-sdk/releases/download/azure-guest-attest-v0.2.0/azure-guest-attest-x86_64-unknown-linux-musl',
+            '&&',
+            'wget https://github.com/Azure/azure-guest-attestation-sdk/releases/download/azure-guest-attest-v0.2.0/azure-guest-attest-x86_64-unknown-linux-musl.sha256'
+            '&&',
+            'sha256sum -c azure-guest-attest-x86_64-unknown-linux-musl.sha256',
+            '&&',
+            'install --owner root --group root --mode +x -D guest-attest /local-bin/guest-attest'
+          ]
+          volumeMounts:
+            - name: local-bin
+              mountPath: /local-bin
+      volumes:
+        - name: local-bin
+          hostPath: /usr/local/bin
