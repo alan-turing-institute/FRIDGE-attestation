@@ -2,4 +2,13 @@ FROM ubuntu:noble
 
 ADD --chmod=755 https://github.com/Azure/azure-guest-attestation-sdk/releases/download/azure-guest-attest-v0.2.0/azure-guest-attest-x86_64-unknown-linux-musl /usr/local/bin/azure-guest-attest
 
-CMD ["/usr/local/bin/azure-guest-attest", "guest-attest", "--provider", "maa"]
+COPY --chmod 755 write-feature.sh
+
+CMD [ \
+  "/usr/local/bin/azure-guest-attest", \
+  "guest-attest", \
+  "--provider", "maa", \
+  "--out", "result", \
+  "&&", \
+  "write-feature.sh"
+  ]
