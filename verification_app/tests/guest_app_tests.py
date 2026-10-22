@@ -53,6 +53,9 @@ def temp_token(private_key,payload,headers):
     return jwt.encode(payload,private_key,headers=headers,algorithm="RS256")
 
 class TestVerificationApp:
+    """
+    A series of tests for the guest verification app
+    """
     
     @pytest.mark.parametrize(
         "field_name, field_value, return_value, error",
@@ -83,3 +86,5 @@ class TestVerificationApp:
             assert error in captured.out
 
         jwt.PyJWKClient.get_signing_key_from_jwt.assert_called_once()
+
+        
