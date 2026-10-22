@@ -4,5 +4,7 @@ ADD --chmod=755 https://github.com/Azure/azure-guest-attestation-sdk/releases/do
 
 COPY --chmod=755 write-feature.sh /usr/local/bin/write-feature
 
-CMD azure-guest-attest guest-attest --provider maa --out result && \
+ENV PROVIDER=maa
+
+CMD azure-guest-attest guest-attest --provider $PROVIDER --out result && \
 write-feature
