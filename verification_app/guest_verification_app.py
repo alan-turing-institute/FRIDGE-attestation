@@ -29,12 +29,13 @@ def verify_signature(token) -> int:
 
     # Get the address of the signing authority and encryption algorithm used.
     # Don't verify yet.
-    try:        
-        iss = jwt.decode(token, options={"verify_signature": False})["iss"]
+    try:
         algo = jwt.get_unverified_header(token)["alg"]
+        iss = jwt.decode(token, algorithms=[algo], options={"verify_signature": False})["iss"]
+
         
     except jwt.exceptions.DecodeError:
-        print("Dio not receive a valid token")
+        print("Did not receive a valid token")
         return 1
 
     # Get the associated key from the issuing authority
