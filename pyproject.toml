@@ -4,4 +4,7 @@ packages = ["verification_app"]
 [project]
 name = "FRIDGE-attestation"
 version = "0.1.0"
-dependencies = ["pytest"]
+dependencies = ["pyjwt","pyyaml"]
+
+[project.optional_dependencies]
+test = ["pytest"]
