@@ -1,6 +1,6 @@
+import copy
 from unittest.mock import Mock
 
-import copy
 import jwt
 import pytest
 import verification_app.guest_verification_app as guest_app
@@ -98,7 +98,7 @@ class TestVerificationApp:
 
         jwt.PyJWKClient.get_signing_key_from_jwt.assert_called_once()
 
-    def test_throws_on_garbage(self, capsys):
+    def test_throws_on_garbage(self):
         ### Check that a nonsensical token in throws
 
         token_in = "Some none base64 string"
@@ -106,7 +106,7 @@ class TestVerificationApp:
         # This bad token fails
         with pytest.raises(TypeError, match="Did not receive a valid token"):
             guest_app.verify_signature(token_in)
-    
+
     def test_read_claims_from_token(self, key_object):
         ### Test that we get the claims we expect from a token
 
@@ -120,7 +120,7 @@ class TestVerificationApp:
         # Check a nonsense string won't decode
         with pytest.raises(jwt.exceptions.DecodeError):
             claims = guest_app.retrieve_claims_from_token("fake.fake.fake")
-        
+
     def test_read_policy_correctly(self, pytestconfig):
         ### Check we get a correct dictionary from a good policy file
         policy_path = pytestconfig.rootdir / "verification_app" / "tests" / "data" / "good_file.yaml"
@@ -166,7 +166,7 @@ class TestVerificationApp:
             # Missing entry fails for mandatory but passes for optional
             ("mandatory", "not-real", "fake", False),
             ("optional", "not-real", "fake", True),
-            
+
         ]
     )
     def test_check_policies(self, key_object, policy_type, field_name, field_value, expect_pass):

@@ -17,12 +17,8 @@ import yaml
 
 def read_token_from_file(filename) -> str:
     ### Reads a JWT from filename
-    token_coded = ""
-
     with open(filename) as f:
-        token_coded = f.read()
-    
-    return token_coded
+         return f.read()
 
 def verify_signature(token) -> bool:
     ### Verify the JWT's signature using the issuing authority
@@ -33,10 +29,9 @@ def verify_signature(token) -> bool:
         algo = jwt.get_unverified_header(token)["alg"]
         iss = jwt.decode(token, algorithms=[algo], options={"verify_signature": False})["iss"]
 
-
-    except jwt.exceptions.DecodeError:
+    except jwt.exceptions.DecodeError as err:
         error_msg = "Did not receive a valid token"
-        raise TypeError(error_msg)
+        raise TypeError(error_msg) from err
 
     # Get the associated key from the issuing authority
     key = jwt.PyJWKClient(f"{iss}/certs").get_signing_key_from_jwt(token)
@@ -72,11 +67,11 @@ def check_policies(token, policy_dict) -> bool:
 
     if not isinstance(policy_dict, dict):
         error_msg = "Policies must be passed as a dictionary"
-        raise TypeError(error_msg)    
+        raise TypeError(error_msg)
     if "mandatory" not in policy_dict:
         error_msg = "Policies are missing a mandatory set of rules"
         raise AttributeError(error_msg)
-    
+
     # Split policies into mandatory and optional
     mandatory_policies = policy_dict["mandatory"]
     optional_policies = policy_dict["optional"] if "optional" in policy_dict else {}
