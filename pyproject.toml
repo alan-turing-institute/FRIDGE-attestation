@@ -1,0 +1,10 @@
+[tool.setuptools]
+packages = ["verification_app"]
+
+[project]
+name = "FRIDGE-attestation"
+version = "0.1.0"
+dependencies = ["pyjwt","pyyaml","cryptography"]
+
+[project.optional-dependencies]
+test = ["pytest"]
