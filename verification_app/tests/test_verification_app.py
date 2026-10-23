@@ -1,12 +1,9 @@
-import pytest
-import jwt
-
 from unittest.mock import Mock
 
-from cryptography.hazmat.primitives.asymmetric import rsa
-
+import jwt
+import pytest
 import verification_app.guest_verification_app as guest_app
-
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 # Make common dicts for mock token and key payloads
 TOKEN_HEADERS = {
@@ -15,7 +12,7 @@ TOKEN_HEADERS = {
 }
 
 TOKEN_PAYLOAD = {
-    "iss":"dummy-website.ac.uk"
+    "iss":"https://dummy-website.ac.uk"
 }
 
 JWK_PAYLOAD = {
@@ -36,12 +33,12 @@ class Key_Object:
         )
         self.public_key = self.private_key.public_key()
 
-    def return_key(self,token=""):
+    def return_key(self,*args):
         key = Mock()
         key.key = self.public_key
         return key
-    
-@pytest.fixture()
+
+@pytest.fixture
 def key_object():
     ### Fixture to generate keys we can refer back to during tests
     keys = Key_Object()
@@ -56,13 +53,13 @@ class TestVerificationApp:
     """
     A series of tests for the guest verification app
     """
-    
+
     @pytest.mark.parametrize(
         "field_name, field_value, return_value, error",
         [
-            ("","",0,""), # Good case
-            ("exp","1792090396",1,"Signature has expired"), # out of date signature
-            ("nbf","2000000000",1,"token is not yet valid")
+            ("","",True,""), # Good case
+            ("exp","1792090396",False,"Signature has expired"), # out of date signature
+            ("nbf","2000000000",False,"token is not yet valid")
         ]
     )
     def test_verify_token(self, key_object, capsys, field_name, field_value, return_value, error):
@@ -77,7 +74,7 @@ class TestVerificationApp:
 
         # Run verify_signature on it
         return_val = guest_app.verify_signature(token)
-        
+
         assert return_val == return_value
 
         # If we expect is to fail, check that the error message agrees with the failure
@@ -87,4 +84,48 @@ class TestVerificationApp:
 
         jwt.PyJWKClient.get_signing_key_from_jwt.assert_called_once()
 
-        
+    def test_fails_on_garbage(self, capsys):
+        ### Check that a nonsensical token in fails
+
+        token_in = "Some none base64 string"
+
+        return_val = guest_app.verify_signature(token_in)
+
+        # This bad token fails
+        assert not return_val
+
+        # Check we are failing at the correct point
+        captured = capsys.readouterr()
+        assert "Did not receive a valid token" in captured.out
+
+    def test_read_policy_correctly(self, pytestconfig):
+        ### Check we get a correct dictionary from a good policy file
+        policy_path = pytestconfig.rootdir / "verification_app" / "tests" / "data" / "good_file.yaml"
+        policies = guest_app.read_policies_from_file(policy_path)
+
+        assert isinstance(policies,dict)
+
+        assert "mandatory" in policies
+        assert "optional" in policies
+
+        assert policies["optional"] == {"fake-entry": "not_real"}
+        assert policies["mandatory"] == {
+            "iss": "https://sharedeus2.eus2.attest.azure.net",
+            "x-ms-attestation-type": "azurevm",
+            "x-ms-azurevm-attestation-protocol-ver": "2.0",
+        }
+
+    @pytest.mark.parametrize(
+        "policy_file, expected_error",
+        [
+            ("not_yaml.txt", TypeError),
+            ("empty_file.yaml", TypeError),
+            ("missing_file.yaml", FileNotFoundError),
+            ("no_mandatory.yaml", ValueError),
+        ]
+    )
+    def test_read_policy_failures(self, pytestconfig, policy_file, expected_error):
+        ### Test we read policy files correctly
+        policy_path = pytestconfig.rootdir / "verification_app" / "tests" / "data" / policy_file
+        with pytest.raises(expected_error):
+             guest_app.read_policies_from_file(policy_path)
