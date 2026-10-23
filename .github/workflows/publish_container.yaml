@@ -39,6 +39,6 @@ jobs:
         with:
           push: true
           context: guest_configuration/container/
-          file: Containerfile
+          file: guest_configuration/container/Containerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
