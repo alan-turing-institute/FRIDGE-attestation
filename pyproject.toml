@@ -6,5 +6,5 @@ name = "FRIDGE-attestation"
 version = "0.1.0"
 dependencies = ["pyjwt","pyyaml"]
 
-[project.optional_dependencies]
+[project.optional-dependencies]
 test = ["pytest"]
