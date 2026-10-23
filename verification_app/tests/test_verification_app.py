@@ -22,7 +22,7 @@ JWK_PAYLOAD = {
     "alg": "RS256"
 }
 
-class Key_Object:
+class KeyObject:
     """
     Wrapper object to hold key information during tests for encoding and decoding JWTs
     """
@@ -41,7 +41,7 @@ class Key_Object:
 @pytest.fixture
 def key_object():
     ### Fixture to generate keys we can refer back to during tests
-    keys = Key_Object()
+    keys = KeyObject()
     jwt.PyJWKClient.get_signing_key_from_jwt = Mock(side_effect=keys.return_key)
     return keys
 
@@ -57,9 +57,9 @@ class TestVerificationApp:
     @pytest.mark.parametrize(
         "field_name, field_value, return_value, error",
         [
-            ("","",True,""), # Good case
-            ("exp","1792090396",False,"Signature has expired"), # out of date signature
-            ("nbf","2000000000",False,"token is not yet valid")
+            ("", "", True, ""), # Good case
+            ("exp", "1792090396", False, "Signature has expired"), # out of date signature
+            ("nbf", "2000000000", False, "token is not yet valid")
         ]
     )
     def test_verify_token(self, key_object, capsys, field_name, field_value, return_value, error):
