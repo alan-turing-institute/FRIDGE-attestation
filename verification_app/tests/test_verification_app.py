@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+import copy
 import jwt
 import pytest
 import verification_app.guest_verification_app as guest_app
@@ -8,11 +9,14 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 # Make common dicts for mock token and key payloads
 TOKEN_HEADERS = {
     "alg": "RS256",
-    "typ":"JWT",
+    "typ": "JWT",
 }
 
 TOKEN_PAYLOAD = {
-    "iss":"https://dummy-website.ac.uk"
+    "iss": "https://dummy-website.ac.uk",
+    "x-ms-attestation-type": "azurevm",
+    "x-ms-azurevm-dbvalidated": True,
+    "x-ms-azurevm-osdistro": "Ubuntu",
 }
 
 JWK_PAYLOAD = {
@@ -20,6 +24,16 @@ JWK_PAYLOAD = {
     "e": "AQAB",
     "use": "sig",
     "alg": "RS256"
+}
+
+BASE_POLICIES = {
+    "mandatory": {
+        "iss": "https://dummy-website.ac.uk",
+        "x-ms-azurevm-dbvalidated": True,
+    },
+    "optional": {
+        "x-ms-attestation-type": "azurevm",
+    }
 }
 
 class KeyObject:
@@ -66,7 +80,7 @@ class TestVerificationApp:
         ### Check that our tokens verify and fail as appropriate
 
         # Create the token payload using parametrised input
-        token_payload = TOKEN_PAYLOAD
+        token_payload = copy.deepcopy(TOKEN_PAYLOAD)
         if field_name:
             token_payload[field_name] = field_value
 
@@ -84,20 +98,29 @@ class TestVerificationApp:
 
         jwt.PyJWKClient.get_signing_key_from_jwt.assert_called_once()
 
-    def test_fails_on_garbage(self, capsys):
-        ### Check that a nonsensical token in fails
+    def test_throws_on_garbage(self, capsys):
+        ### Check that a nonsensical token in throws
 
         token_in = "Some none base64 string"
 
-        return_val = guest_app.verify_signature(token_in)
-
         # This bad token fails
-        assert not return_val
+        with pytest.raises(TypeError, match="Did not receive a valid token"):
+            guest_app.verify_signature(token_in)
+    
+    def test_read_claims_from_token(self, key_object):
+        ### Test that we get the claims we expect from a token
 
-        # Check we are failing at the correct point
-        captured = capsys.readouterr()
-        assert "Did not receive a valid token" in captured.out
+        # Get a token
+        token_payload = TOKEN_PAYLOAD
+        token = temp_token(key_object.private_key,token_payload,TOKEN_HEADERS)
 
+        claims = guest_app.retrieve_claims_from_token(token)
+        assert claims == TOKEN_PAYLOAD
+
+        # Check a nonsense string won't decode
+        with pytest.raises(jwt.exceptions.DecodeError):
+            claims = guest_app.retrieve_claims_from_token("fake.fake.fake")
+        
     def test_read_policy_correctly(self, pytestconfig):
         ### Check we get a correct dictionary from a good policy file
         policy_path = pytestconfig.rootdir / "verification_app" / "tests" / "data" / "good_file.yaml"
@@ -129,3 +152,57 @@ class TestVerificationApp:
         policy_path = pytestconfig.rootdir / "verification_app" / "tests" / "data" / policy_file
         with pytest.raises(expected_error):
              guest_app.read_policies_from_file(policy_path)
+
+    @pytest.mark.parametrize(
+        "policy_type, field_name, field_value, expect_pass",
+        [
+            ("","",None,True), # Use the default policy
+            # Check two correct policies still pass
+            ("mandatory", "x-ms-azurevm-osdistro", "Ubuntu", True),
+            ("optional", "x-ms-azurevm-osdistro", "Ubuntu", True),
+            # Policy with incorrect entry fails, optional and mandatory
+            ("mandatory", "x-ms-attestation-type", "Ubuntu", False),
+            ("optional", "x-ms-attestation-type", "Ubuntu", False),
+            # Missing entry fails for mandatory but passes for optional
+            ("mandatory", "not-real", "fake", False),
+            ("optional", "not-real", "fake", True),
+            
+        ]
+    )
+    def test_check_policies(self, key_object, policy_type, field_name, field_value, expect_pass):
+        ### Test the check policies function
+
+        # Load policies
+        policies = copy.deepcopy(BASE_POLICIES)
+        # Add parameterised inputs to policy
+        if policy_type:
+            policies[policy_type][field_name] = field_value
+
+        # Get a token
+        token_payload = TOKEN_PAYLOAD
+        token = temp_token(key_object.private_key,token_payload,TOKEN_HEADERS)
+
+        # Test policy on this token
+        assert guest_app.check_policies(token,policies) == expect_pass
+
+    def test_check_policies_error_handling(self, key_object):
+
+        # Get a token
+        token_payload = TOKEN_PAYLOAD
+        token = temp_token(key_object.private_key,token_payload,TOKEN_HEADERS)
+
+        # No mandatory policies
+        policies = {"optional": {"test":"nope"}}
+
+        with pytest.raises(AttributeError, match = "missing a mandatory set of rules"):
+            guest_app.check_policies(token,policies)
+
+        # Will pass without any payload as long as mandatory is there
+        # Also passes with optional not in keyset
+        policies = {"mandatory": {}}
+        guest_app.check_policies(token,policies)
+
+        # Completely the wrong datatype will fail
+        policies = "Policiy string"
+        with pytest.raises(TypeError, match = "Policies must be passed as a dictionary"):
+            guest_app.check_policies(token,policies)
