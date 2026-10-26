@@ -123,7 +123,7 @@ class TestVerificationApp:
 
     def test_read_policy_correctly(self, pytestconfig):
         ### Check we get a correct dictionary from a good policy file
-        policy_path = pytestconfig.rootdir / "verification_app" / "tests" / "data" / "good_file.yaml"
+        policy_path = pytestconfig.rootdir / "tests" / "data" / "good_file.yaml"
         policies = guest_app.read_policies_from_file(policy_path)
 
         assert isinstance(policies,dict)
@@ -149,7 +149,7 @@ class TestVerificationApp:
     )
     def test_read_policy_failures(self, pytestconfig, policy_file, expected_error):
         ### Test we read policy files correctly
-        policy_path = pytestconfig.rootdir / "verification_app" / "tests" / "data" / policy_file
+        policy_path = pytestconfig.rootdir / "tests" / "data" / policy_file
         with pytest.raises(expected_error):
              guest_app.read_policies_from_file(policy_path)
 

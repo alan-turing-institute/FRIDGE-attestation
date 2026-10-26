@@ -24,4 +24,5 @@ jobs:
         run: pipx install hatch
 
       - name: Run hatch test
-        run: hatch test verification_app/
+        working-directory: verification_app/
+        run: hatch test
