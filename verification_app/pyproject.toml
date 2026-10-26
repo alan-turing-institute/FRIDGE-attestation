@@ -12,5 +12,5 @@ dependencies = [
   "cryptography>=50.0.2"
 ]
 
-[project.optional-dependencies]
-test = ["pytest"]
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.12"]
