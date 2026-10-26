@@ -15,8 +15,10 @@ spec:
           volumeMounts:
             - name: security
               mountPath: /sys/kernel/security
+              readOnly: true
             - name: tpm
               mountPath: /dev/tpm0
+              readOnly: true
             - name: nfd-features
               mountPath: /nfd
           securityContext:
@@ -25,10 +27,12 @@ spec:
         - name: security
           hostPath:
             path: /sys/kernel/security
+            type: Directory
         - name: tpm
           hostPath:
             path: /dev/tpm0
+            type: CharDevice
         - name: nfd-features
           hostPath:
             path: /etc/kubernetes/node-feature-discovery/features.d
-          readOnly: false
+            type: DirectoryOrCreate
