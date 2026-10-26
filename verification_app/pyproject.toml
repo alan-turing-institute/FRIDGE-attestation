@@ -5,6 +5,7 @@ packages = ["verification_app"]
 name = "FRIDGE-attestation"
 version = "0.1.0"
 dependencies = ["pyjwt","pyyaml","cryptography"]
+license = "BSD-3-Clause"
 
 [project.optional-dependencies]
 test = ["pytest"]
