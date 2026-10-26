@@ -4,7 +4,13 @@ metadata:
   name: guest-attest
   namespace: kube-system
 spec:
+  selector:
+    matchLabels:
+      name: guest-attest
   template:
+    metadata:
+      labels:
+        name: guest-attest
     spec:
       restartPolicy: Always
       nodeSelector:
