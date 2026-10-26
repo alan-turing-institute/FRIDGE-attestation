@@ -21,11 +21,14 @@ spec:
               mountPath: /nfd
           securityContext:
             privileged: true
-          volumes:
-            - name: security
-              hostPath: /sys/kernel/security
-            - name: tpm
-              hostPath: /dev/tpm0
-            - name: nfd-features
-              hostPath: /etc/kubernetes/node-feature-discovery/features.d
-              readOnly: false
+      volumes:
+        - name: security
+          hostPath:
+            path: /sys/kernel/security
+        - name: tpm
+          hostPath:
+            path: /dev/tpm0
+        - name: nfd-features
+          hostPath:
+            path: /etc/kubernetes/node-feature-discovery/features.d
+          readOnly: false
