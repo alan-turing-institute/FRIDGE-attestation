@@ -1,31 +1,44 @@
 apiVersion: apps/v1
-kind: Daemonset
+kind: DaemonSet
 metadata:
   name: guest-attest
   namespace: kube-system
 spec:
+  selector:
+    matchLabels:
+      name: guest-attest
   template:
+    metadata:
+      labels:
+        name: guest-attest
     spec:
       restartPolicy: Always
       nodeSelector:
         kubernetes.azure.com/security-type: ConfidentialVM  # label given to CVM nodes by AKS
       containers:
         - name: guest-attest
-          container: ghcr.io/alan-turing-institute/fridge-attestation:main
+          image: ghcr.io/alan-turing-institute/fridge-attestation:main
           volumeMounts:
             - name: security
               mountPath: /sys/kernel/security
+              readOnly: true
             - name: tpm
               mountPath: /dev/tpm0
+              readOnly: true
             - name: nfd-features
               mountPath: /nfd
           securityContext:
             privileged: true
-          volumes:
-            - name: security
-              hostPath: /sys/kernel/security
-            - name: tpm
-              hostPath: /dev/tpm0
-            - name: nfd-features
-              hostPath: /etc/kubernetes/node-feature-discovery/features.d
-              readOnly: false
+      volumes:
+        - name: security
+          hostPath:
+            path: /sys/kernel/security
+            type: Directory
+        - name: tpm
+          hostPath:
+            path: /dev/tpm0
+            type: CharDevice
+        - name: nfd-features
+          hostPath:
+            path: /etc/kubernetes/node-feature-discovery/features.d
+            type: DirectoryOrCreate
