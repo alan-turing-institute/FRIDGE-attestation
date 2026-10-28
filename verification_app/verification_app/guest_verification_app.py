@@ -106,7 +106,7 @@ def main():
         sys.exit(1)
 
     # Verify the token from signature
-    if args.verify_signature and verify_signature(token):
+    if args.verify_signature and not verify_signature(token):
         print ("Token failed to verify. Exiting")
         sys.exit(1)
 
