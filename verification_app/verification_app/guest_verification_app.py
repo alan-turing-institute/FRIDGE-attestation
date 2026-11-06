@@ -62,6 +62,24 @@ def read_policies_from_file(policy_file) -> dict:
         raise ValueError(error_msg)
     return policy_dict
 
+def _matches_policy(claims: dict, policies: dict, required: bool) -> bool:
+    """Match specified fields recursively, leaving other token claims unrestricted."""
+    for key, expected in policies.items():
+        if key not in claims:
+            if required:
+                return False
+            continue
+        actual = claims[key]
+        if isinstance(expected, dict):
+            if not isinstance(actual, dict):
+                return False
+            if not _matches_policy(actual, expected, required):
+                return False
+        elif actual != expected:
+            return False
+    return True
+
+
 def check_policies(token, policy_dict) -> bool:
     ### Check the token against our desired policies
 
@@ -76,11 +94,14 @@ def check_policies(token, policy_dict) -> bool:
     mandatory_policies = policy_dict["mandatory"]
     optional_policies = policy_dict["optional"] if "optional" in policy_dict else {}
 
+    if not isinstance(mandatory_policies, dict) or not isinstance(optional_policies, dict):
+        raise TypeError("Mandatory and optional policy sections must be dictionaries")
+
     claims = retrieve_claims_from_token(token)
 
-    # Check all values of the policy are equivalent in the claim
-    passes_mandatory = all(claims.get(key) == val for key, val in mandatory_policies.items())
-    passes_optional = all(claims.get(key) == val for key, val in optional_policies.items() if key in claims)
+    # Mandatory fields must exist; optional fields are checked wherever present.
+    passes_mandatory = _matches_policy(claims, mandatory_policies, required=True)
+    passes_optional = _matches_policy(claims, optional_policies, required=False)
     return(passes_mandatory and passes_optional)
 
 
