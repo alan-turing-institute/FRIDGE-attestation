@@ -73,14 +73,16 @@ def setup_interpeter(policy_file) -> Interpreter:
 
     return interpreter
 
-def check_interpreter_policies(token, interpreter) -> bool:
+def check_interpreter_policies(token, interpreter, policy_package_name = "attestation") -> bool:
     ### Use the rego policy to check our token
 
     # Convert the claims into the format required by rego
     interpreter.set_input_term(json.dumps(retrieve_claims_from_token(token)))
 
     # Run the policy
-    out = interpreter.query('data.attestation.result')
+    out = interpreter.query(f'data.{policy_package_name}.result')
+
+    print(out)
 
     # Large conversion to python dict because I can't find a better way to use the output
     result_dict = json.loads(out.node().json())["expressions"][0]
