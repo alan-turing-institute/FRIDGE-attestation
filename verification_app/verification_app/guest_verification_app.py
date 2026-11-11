@@ -9,10 +9,12 @@ Space is left to add information to node.
 """
 
 import argparse
+import json
 import sys
 
 import jwt
 import yaml
+from regopy import Interpreter
 
 
 def read_token_from_file(filename) -> str:
@@ -62,6 +64,37 @@ def read_policies_from_file(policy_file) -> dict:
         raise ValueError(error_msg)
     return policy_dict
 
+def setup_interpeter(policy_file) -> Interpreter:
+    ### Make a rego interpreter from a policy file
+
+    interpreter = Interpreter()
+    with open(policy_file) as f:
+        interpreter.add_module("policy", f.read())
+
+    return interpreter
+
+def get_rego_policy_result(token, interpreter, policy_package_name = "attestation") -> dict:
+    ### Get the results from a rego policy applied to our token
+
+    # Convert the claims into the format required by rego
+    interpreter.set_input_term(json.dumps(retrieve_claims_from_token(token)))
+
+    # Run the policy
+    out = interpreter.query(f'data.{policy_package_name}.result')
+
+    # Large conversion to python dict because I can't find a better way to use the output
+    return json.loads(out.node().json())["expressions"][0]
+
+def interpret_policy_output(result_dict) -> bool:
+    ### Interpret our rego result as pass/fail and output violations
+
+    if len(result_dict["violations"]):
+        print("Policy fails for the following reasons:")
+        for violation in result_dict["violations"]:
+            print(f"- {violation}")
+
+    return result_dict["allow"]
+
 def check_policies(token, policy_dict) -> bool:
     ### Check the token against our desired policies
 
@@ -90,6 +123,7 @@ def parse_args():
     args.add_argument("-s", "--string", default="", help="A JWT string input")
     args.add_argument("-v", "--verify_signature", default=True, action="store_false", help="Use this flag to skip verification step")
     args.add_argument("-p", "--policy", default="", help="Policy file to compare to attestation")
+    args.add_argument("-r", "--rego_policy", default="", help="Rego policy file to compare to attestation")
     return args.parse_args()
 
 def main():
@@ -114,6 +148,13 @@ def main():
     if args.policy:
         policies = read_policies_from_file(args.policy)
         if not check_policies(token, policies):
+            print ("Token fails policies!")
+            sys.exit(1)
+
+    if args.rego_policy:
+        interpreter = setup_interpeter(args.rego_policy)
+        policy_results = get_rego_policy_result(token, interpreter)
+        if not(interpret_policy_output(policy_results)):
             print ("Token fails policies!")
             sys.exit(1)
 

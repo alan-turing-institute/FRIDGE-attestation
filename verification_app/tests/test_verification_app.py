@@ -3,8 +3,10 @@ from unittest.mock import Mock
 
 import jwt
 import pytest
-import verification_app.guest_verification_app as guest_app
 from cryptography.hazmat.primitives.asymmetric import rsa
+from regopy import Interpreter
+
+import verification_app.guest_verification_app as guest_app
 
 # Make common dicts for mock token and key payloads
 TOKEN_HEADERS = {
@@ -17,6 +19,10 @@ TOKEN_PAYLOAD = {
     "x-ms-attestation-type": "azurevm",
     "x-ms-azurevm-dbvalidated": True,
     "x-ms-azurevm-osdistro": "Ubuntu",
+    # A nest dictionary in the payload
+    "x-ms-azurevm-attested-pcr-values": {
+        "pcr0": "demo_text",
+    }
 }
 
 JWK_PAYLOAD = {
@@ -35,6 +41,47 @@ BASE_POLICIES = {
         "x-ms-attestation-type": "azurevm",
     }
 }
+
+BASE_REGO_POLICY = """
+package test
+
+default allow := false
+
+allow if {
+    count(violations) == 0
+}
+
+# Test mandatory string case
+violations contains msg0 if {
+    # Check the mandatory option exists
+    not _ = input["x-ms-attestation-type"]
+    msg0 := "Missing attestation type"
+}
+{
+    # Check the input is correct
+    not input["x-ms-attestation-type"] == "azurevm"
+    msg0 := sprintf("Test0: Incorrect attestation type: %v", [input["x-ms-attestation-type"]])
+}
+
+# Test nested case
+violations contains msg1 if {
+    not input["x-ms-azurevm-attested-pcr-values"].pcr0 == "demo_text"
+    msg1 := sprintf("Test1: PCR0 value is incorrect: %v",  [input["x-ms-azurevm-attested-pcr-values"].pcr0])
+}
+
+
+# Optional criteria
+violations contains msg2 if {
+    not input.optional == "pass"
+    msg2 := sprintf("Test2: Optional argument is incorrent: %v", [input.optional])
+}
+
+result := {
+    "allow": allow,
+    "violations": violations
+}
+"""
+
 
 class KeyObject:
     """
@@ -58,6 +105,13 @@ def key_object():
     keys = KeyObject()
     jwt.PyJWKClient.get_signing_key_from_jwt = Mock(side_effect=keys.return_key)
     return keys
+
+@pytest.fixture
+def interpreter():
+    ### Fixture to make a rego interpreter from the default policy
+    interpreter = Interpreter()
+    interpreter.add_module("test_policy",BASE_REGO_POLICY)
+    return interpreter
 
 def temp_token(private_key,payload,headers):
     ### Generate a temporary token using a given key, payloads and header
@@ -91,10 +145,9 @@ class TestVerificationApp:
 
         assert return_val == return_value
 
-        # If we expect is to fail, check that the error message agrees with the failure
-        if return_value == 1:
-            captured = capsys.readouterr()
-            assert error in captured.out
+        # Check that the error message agrees with the failure
+        captured = capsys.readouterr()
+        assert error in captured.out
 
         jwt.PyJWKClient.get_signing_key_from_jwt.assert_called_once()
 
@@ -206,3 +259,53 @@ class TestVerificationApp:
         policies = "Policiy string"
         with pytest.raises(TypeError, match = "Policies must be passed as a dictionary"):
             guest_app.check_policies(token,policies)
+
+    @pytest.mark.parametrize(
+        "field_name, field_value, return_value, error",
+        [
+            ("", "", True, ""), # Good case
+            # Fail a simple check
+            ("x-ms-attestation-type", "fail", False,"Test0: Incorrect attestation type: fail"),
+            # Check our nested definitions are tested correctly
+            ("x-ms-azurevm-attested-pcr-values", {"pcr0": "fail"}, False, "Test1: PCR0 value is incorrect: fail"),
+
+            ("optional", "fail", False, "Test2: Optional argument is incorrent: fail"),
+            ("optional", "pass", True, ""),
+        ]
+    )
+    def test_check_rego_policies(self, key_object, capsys, interpreter, field_name, field_value, return_value, error):
+        ### Test our rego policy implementation
+
+        # Create the token payload using parametrised input
+        token_payload = copy.deepcopy(TOKEN_PAYLOAD)
+        if field_name:
+            token_payload[field_name] = field_value
+
+        token = temp_token(key_object.private_key,token_payload,TOKEN_HEADERS)
+
+        results =  guest_app.get_rego_policy_result(token, interpreter, "test")
+
+        assert (results["allow"] == return_value)
+
+        # Check also the interpreter
+        assert (guest_app.interpret_policy_output(results) == return_value)
+
+        captured = capsys.readouterr()
+        assert error in captured.out
+
+    def test_missing_mandatory_field(self, key_object, interpreter, capsys):
+        ### Check that the policy fails if we're missing the mandatory value
+
+        token_payload = copy.deepcopy(TOKEN_PAYLOAD)
+
+        token_payload.pop("x-ms-attestation-type")
+
+        token = temp_token(key_object.private_key,token_payload,TOKEN_HEADERS)
+
+        results = guest_app.get_rego_policy_result(token, interpreter, "test")
+
+        assert (not results["allow"])
+
+        assert (not guest_app.interpret_policy_output(results))
+        captured = capsys.readouterr()
+        assert "Missing attestation type" in captured.out
