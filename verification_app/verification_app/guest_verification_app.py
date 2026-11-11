@@ -73,8 +73,8 @@ def setup_interpeter(policy_file) -> Interpreter:
 
     return interpreter
 
-def check_interpreter_policies(token, interpreter, policy_package_name = "attestation") -> bool:
-    ### Use the rego policy to check our token
+def get_rego_policy_result(token, interpreter, policy_package_name = "attestation") -> dict:
+    ### Get the results from a rego policy applied to our token
 
     # Convert the claims into the format required by rego
     interpreter.set_input_term(json.dumps(retrieve_claims_from_token(token)))
@@ -82,10 +82,11 @@ def check_interpreter_policies(token, interpreter, policy_package_name = "attest
     # Run the policy
     out = interpreter.query(f'data.{policy_package_name}.result')
 
-    print(out)
-
     # Large conversion to python dict because I can't find a better way to use the output
-    result_dict = json.loads(out.node().json())["expressions"][0]
+    return json.loads(out.node().json())["expressions"][0]
+
+def interpret_policy_output(result_dict) -> bool:
+    ### Interpret our rego result as pass/fail and output violations
 
     if len(result_dict["violations"]):
         print("Policy fails for the following reasons:")
@@ -152,7 +153,8 @@ def main():
 
     if args.rego_policy:
         interpreter = setup_interpeter(args.rego_policy)
-        if not(check_interpreter_policies(token, interpreter)):
+        policy_results = get_rego_policy_result(token, interpreter)
+        if not(interpret_policy_output(policy_results)):
             print ("Token fails policies!")
             sys.exit(1)
 
