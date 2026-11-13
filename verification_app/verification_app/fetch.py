@@ -10,7 +10,7 @@ def fetch_report(api_instance, pod: str) -> str:
     exec_command = [
         '/bin/sh',
         '-c',
-        'cat /nfd/attestation'
+        'cat /result.jwt'
     ]
     response = stream(
         api_instance.connect_get_namespaced_pod_exec,
