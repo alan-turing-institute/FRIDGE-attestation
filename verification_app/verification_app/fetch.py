@@ -6,6 +6,9 @@ from kubernetes.stream import stream
 
 from .kubernetes import k8s_client
 
+NODE_SELECTOR = 'kubernetes.azure.com/security-type=ConfidentialVM'
+POD_LABEL_SELECTOR = 'name=guest-attest'
+
 def fetch_report(api_instance, pod: str) -> str:
     exec_command = [
         '/bin/sh',
@@ -26,27 +29,25 @@ def fetch_report(api_instance, pod: str) -> str:
 
 def get_cvm_nodes(api_instance: CoreV1Api) -> V1NodeList:
     return api_instance.list_node(
-        label_selector='kubernetes.azure.com/security-type=ConfidentialVM',
+        label_selector=NODE_SELECTOR,
         watch=False
     )
 
 def get_guest_attest_pods(api_instance: CoreV1Api) -> V1PodList:
     return api_instance.list_pod_for_all_namespaces(
-        label_selector='name=guest-attest',
+        label_selector=POD_LABEL_SELECTOR,
         watch=False
     )
 
 def main() -> None:
     api_instance = k8s_client()
     cvm_nodes = get_cvm_nodes(api_instance)
-    for node in cvm_nodes.items:
-        print(node.metadata.name)
     guest_attest_pods = get_guest_attest_pods(api_instance)
+
     for pod in guest_attest_pods.items:
         print(pod.spec.node_name, pod.metadata.name, pod.metadata.namespace)
-
-    report = fetch_report(api_instance, guest_attest_pods.items[0])
-    print(report)
+        report = fetch_report(api_instance, pod)
+        print(report)
 
 if __name__ == "__main__":
     main()
