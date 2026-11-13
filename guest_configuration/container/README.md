@@ -13,7 +13,7 @@ sudo podman run \
   …
   --device /dev/tpm0 \
   --mount type=bind,src=/sys/kernel/security/,target=/sys/kernel/security/ \
-  guest-attest:0.2.0
+  guest-attest:0.3.0
 ```
 
 Mounting the parent `/sys/kernel/security` directory as we can't _create_ files in the kernels virtual filesystem (_e.g._ `mkdir /sys/kernel/security/tpm0`.

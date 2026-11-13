@@ -1,1 +1,1 @@
-podman build --tag guest-attest:0.2.0 .
+podman build --tag guest-attest:0.3.0 .
