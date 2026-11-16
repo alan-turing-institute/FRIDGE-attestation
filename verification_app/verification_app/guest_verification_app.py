@@ -11,6 +11,7 @@ Space is left to add information to node.
 import argparse
 import json
 import sys
+from typing import Any
 
 import jwt
 import yaml
@@ -48,11 +49,11 @@ def verify_signature(token) -> bool:
         return False
     return True
 
-def retrieve_claims_from_token(token) -> dict:
+def retrieve_claims_from_token(token) -> dict[Any, Any]:
     ### Get the token claims without verification
     return jwt.decode(token, options={"verify_signature": False})
 
-def read_policies_from_file(policy_file) -> dict:
+def read_policies_from_file(policy_file) -> dict[Any, Any]:
     ### Extract policy from yaml file
     with open(policy_file) as f:
         policy_dict = yaml.safe_load(f)#, Loader=yaml.FullLoader)
@@ -73,7 +74,7 @@ def setup_interpeter(policy_file) -> Interpreter:
 
     return interpreter
 
-def get_rego_policy_result(token, interpreter, policy_package_name = "attestation") -> dict:
+def get_rego_policy_result(token, interpreter, policy_package_name = "attestation") -> dict[Any, Any]:
     ### Get the results from a rego policy applied to our token
 
     # Convert the claims into the format required by rego
@@ -85,15 +86,15 @@ def get_rego_policy_result(token, interpreter, policy_package_name = "attestatio
     # Large conversion to python dict because I can't find a better way to use the output
     return json.loads(out.node().json())["expressions"][0]
 
-def interpret_policy_output(result_dict) -> bool:
-    ### Interpret our rego result as pass/fail and output violations
+def policy_met(results_dict) -> bool:
+    ### Return True if the token passed the policy, and False otherwise
 
-    if len(result_dict["violations"]):
-        print("Policy fails for the following reasons:")
-        for violation in result_dict["violations"]:
-            print(f"- {violation}")
+    return results_dict["allow"]
 
-    return result_dict["allow"]
+def get_violations(results_dict) -> list[str]:
+    ### Return violations in a policy as a list
+
+    return results_dict["violations"]
 
 def check_policies(token, policy_dict) -> bool:
     ### Check the token against our desired policies
@@ -154,8 +155,9 @@ def main():
     if args.rego_policy:
         interpreter = setup_interpeter(args.rego_policy)
         policy_results = get_rego_policy_result(token, interpreter)
-        if not(interpret_policy_output(policy_results)):
-            print ("Token fails policies!")
+        if not (policy_met(policy_results)):
+            print ("Token fails policies with the following violations:")
+            print("\n".join(get_violations(policy_results)))
             sys.exit(1)
 
     # Then add to the node information?

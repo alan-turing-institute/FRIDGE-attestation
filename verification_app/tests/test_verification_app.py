@@ -273,7 +273,7 @@ class TestVerificationApp:
             ("optional", "pass", True, ""),
         ]
     )
-    def test_check_rego_policies(self, key_object, capsys, interpreter, field_name, field_value, return_value, error):
+    def test_check_rego_policies(self, key_object, interpreter, field_name, field_value, return_value, error):
         ### Test our rego policy implementation
 
         # Create the token payload using parametrised input
@@ -287,13 +287,13 @@ class TestVerificationApp:
 
         assert (results["allow"] == return_value)
 
-        # Check also the interpreter
-        assert (guest_app.interpret_policy_output(results) == return_value)
+        # Check the results via policy_met
+        assert (guest_app.policy_met(results) == return_value)
 
-        captured = capsys.readouterr()
-        assert error in captured.out
+        # And check we've captured the error corrently in the violations
+        assert error == "" or error in guest_app.get_violations(results)
 
-    def test_missing_mandatory_field(self, key_object, interpreter, capsys):
+    def test_missing_mandatory_field(self, key_object, interpreter):
         ### Check that the policy fails if we're missing the mandatory value
 
         token_payload = copy.deepcopy(TOKEN_PAYLOAD)
@@ -306,6 +306,6 @@ class TestVerificationApp:
 
         assert (not results["allow"])
 
-        assert (not guest_app.interpret_policy_output(results))
-        captured = capsys.readouterr()
-        assert "Missing attestation type" in captured.out
+        # Check in-library methods
+        assert (not guest_app.policy_met(results))
+        assert "Missing attestation type" in guest_app.get_violations(results)
