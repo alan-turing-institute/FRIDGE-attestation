@@ -4,7 +4,7 @@
 
 Find below an example Rego policy with some annotations and lessons learned:
 
-```sh
+```
 package attestation
 
 # We set allow to true only if no violations are found.
